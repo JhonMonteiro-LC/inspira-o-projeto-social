@@ -1,17 +1,13 @@
-
-    
-
 import java.util.ArrayList;
 import javax.swing.JOptionPane;
 
 public class MainInterface {
-    // Armazenamento em memória (Sem banco de dados, como pedido)
     private static ArrayList<Item> bancoEmMemoria = new ArrayList<>();
 
     public static void main(String[] args) {
-        // Inicializando com alguns dados de exemplo para teste
-        bancoEmMemoria.add(new ObjetoComum("Casaco Moletom", "Pátio", "08/06/2026", "Azul"));
-        bancoEmMemoria.add(new Documento("Carteira de Estudante", "Refeitório", "07/06/2026", "Pedro Henrique"));
+        // Dados iniciais de exemplo
+        bancoEmMemoria.add(new ObjetoComum("Casaco Moletom", "Patio", "08/06/2026", "Azul"));
+        bancoEmMemoria.add(new Documento("Carteira de Estudante", "Refeitorio", "07/06/2026", "Pedro Henrique"));
 
         while (true) {
             String[] opcoes = {"Cadastrar Objeto", "Cadastrar Documento", "Listar Itens", "Dar Baixa (Retirado)", "Sair"};
@@ -27,39 +23,52 @@ public class MainInterface {
                     opcoes[0]
             );
 
-            if (escolha == 4 || escolha == -1) { // Sair ou fechar janela
+            if (escolha == 4 || escolha == -1) { 
                 JOptionPane.showMessageDialog(null, "Encerrando o sistema. Até logo!");
                 break;
             }
 
             try {
-                ejecutarOpcao(escolha);
-            } catch (final SistemaException e) {
-                // Tratamento de erro robusto exibindo um alerta gráfico
-                JOptionPane.showMessageDialog(null, "ERRO NO SISTEMA: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(null, "Erro inesperado: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                executarOpcao(escolha);
+            } 
+            // Captura erros de validação textual (Cor com números, local inválido, etc)
+            catch (SistemaException e) {
+                JOptionPane.showMessageDialog(null, "DADO INVÁLIDO: " + e.getMessage(), "Erro de Validação", JOptionPane.WARNING_MESSAGE);
+            } 
+            // Captura erro se digitarem letras no ID de dar baixa
+            catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(null, "ERRO DE FORMATO: Digite apenas números inteiros nesta operação!", "Erro de Entrada", JOptionPane.ERROR_MESSAGE);
+            } 
+            // Captura erro se o ID não existir na lista
+            catch (IndexOutOfBoundsException e) {
+                JOptionPane.showMessageDialog(null, "ERRO: Esse código de item não foi encontrado na lista!", "Erro de Índice", JOptionPane.ERROR_MESSAGE);
+            } 
+            // Qualquer outro erro inesperado
+            catch (Exception e) {
+                JOptionPane.showMessageDialog(null, "ERRO CRÍTICO: " + e.getMessage(), "Erro Inesperado", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private static void ejecutarOpcao(int escolha) throws SistemaException {
+    private static void executarOpcao(int escolha) throws SistemaException {
         if (escolha == 0 || escolha == 1) {
-            String nome = JOptionPane.showInputDialog("Nome do item (ex: Chave, RG):");
-            String local = JOptionPane.showInputDialog("Local onde foi encontrado:");
-            String data = JOptionPane.showInputDialog("Data (DD/MM/AAAA):");
+            String nome = JOptionPane.showInputDialog("Nome do item (ex: Chave, Casaco):");
+            validarApenasLetras(nome, "Nome do Item");
 
-            // Validação simples gerando erro
-            if (nome == null || nome.trim().isEmpty() || local == null || local.trim().isEmpty() || data == null || data.trim().isEmpty()) {
-                throw new SistemaException("Todos os campos básicos devem ser preenchidos!");
-            }
+            String local = JOptionPane.showInputDialog("Local onde foi encontrado (ex: Patio, Sala):");
+            validarApenasLetras(local, "Local Encontrado");
+
+            String data = JOptionPane.showInputDialog("Data (Formato: DD/MM/AAAA):");
+            validarFormatoData(data);
 
             if (escolha == 0) {
-                String cor = JOptionPane.showInputDialog("Cor do objeto:");
+                String cor = JOptionPane.showInputDialog("Cor do objeto (ex: Azul, Preto):");
+                validarApenasLetras(cor, "Cor do Objeto");
                 bancoEmMemoria.add(new ObjetoComum(nome, local, data, cor));
             } else {
-                String dono = JOptionPane.showInputDialog("Nome do dono no documento (se houver):");
-                bancoEmMemoria.add(new Documento(nome, local, data, dono.isEmpty() ? "Desconhecido" : dono));
+                String dono = JOptionPane.showInputDialog("Nome do dono no documento (ex: Joao Silva):");
+                validarApenasLetras(dono, "Nome do Dono");
+                bancoEmMemoria.add(new Documento(nome, local, data, dono));
             }
             JOptionPane.showMessageDialog(null, "Item cadastrado com sucesso!");
 
@@ -73,27 +82,48 @@ public class MainInterface {
             for (int i = 0; i < bancoEmMemoria.size(); i++) {
                 Item it = bancoEmMemoria.get(i);
                 if (!it.isRetirado()) {
-                    // Aqui acontece o Polimorfismo: chama o getDetalhes() específico de cada classe
-                    lista.append(i).append(" - ").append(it.getDetalhes()).append("\n");
+                    lista.append("[").append(i).append("] -> ").append(it.getDetalhes()).append("\n");
                 }
             }
             JOptionPane.showMessageDialog(null, lista.toString());
 
         } else if (escolha == 3) {
-            String idStr = JOptionPane.showInputDialog("Digite o número do item que foi devolvido ao dono:");
+            String idStr = JOptionPane.showInputDialog("Digite o número (ID) do item para dar baixa:");
             if (idStr == null || idStr.isEmpty()) return;
 
-            try {
-                int id = Integer.parseInt(idStr);
-                if (id < 0 || id >= bancoEmMemoria.size() || bancoEmMemoria.get(id).isRetirado()) {
-                    throw new SistemaException("Código de item inválido ou item já retirado.");
-                }
-                bancoEmMemoria.get(id).setRetirado(true);
-                JOptionPane.showMessageDialog(null, "Baixa efetuada! Item entregue.");
-            } catch (NumberFormatException e) {
-                throw new SistemaException("Você deve digitar um número válido.");
+            int id = Integer.parseInt(idStr); 
+            Item selecionado = bancoEmMemoria.get(id); 
+
+            if (selecionado.isRetirado()) {
+                throw new SistemaException("Este item já foi entregue anteriormente.");
             }
+
+            selecionado.setRetirado(true);
+            JOptionPane.showMessageDialog(null, "Baixa efetuada! Item entregue com sucesso.");
+        }
+    }
+
+    // --- MÉTODOS AUXILIARES DE VALIDAÇÃO RESTRITA ---
+
+    // Garante que o texto tenha letras e espaços, bloqueando números e símbolos vazios
+    private static void validarApenasLetras(String texto, String nomeCampo) throws SistemaException {
+        if (texto == null || texto.trim().isEmpty()) {
+            throw new SistemaException("O campo '" + nomeCampo + "' não pode ficar vazio!");
+        }
+        // Expressão regular: aceita apenas letras (com acentos) e espaços de A a Z
+        if (!texto.matches("^[A-Za-zA-Y-À-ž\\s]+$")) {
+            throw new SistemaException("O campo '" + nomeCampo + "' deve conter apenas letras de verdade! Números ou símbolos não são aceitos.");
+        }
+    }
+
+    // Garante que a data siga rigidamente o padrão DD/MM/AAAA com números legítimos
+    private static void validarFormatoData(String data) throws SistemaException {
+        if (data == null || data.trim().isEmpty()) {
+            throw new SistemaException("O campo 'Data' não pode ficar vazio!");
+        }
+        // Expressão regular que valida a máscara estrutural DD/MM/AAAA
+        if (!data.matches("^\\d{2}/\\d{2}/\\d{4}$")) {
+            throw new SistemaException("A data deve seguir rigorosamente o padrão de texto DD/MM/AAAA (ex: 08/06/2026).");
         }
     }
 }
-
